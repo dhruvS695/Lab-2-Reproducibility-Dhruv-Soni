@@ -24,9 +24,10 @@ It is sourced through the City of Austin housing department itself, they collect
 
 In this EDA, I am going to try to answer a few research questions:
 
-<font size="3" color="green">RQ1:</font> Do Affordable Housing projects that recieve more city subsidies have more affordable units available?
+#Changed the following two formats for the font size so that it is bolded more and is a color that can be seen as more prominent color 
+<font size="5" color="red">RQ1:</font> Do Affordable Housing projects that recieve more city subsidies have more affordable units available?
 
-<font size="3" color="green">RQ2:</font> Is there a relationship between when the project started and what kind of housing units it's made of?
+<font size="5" color="red">RQ2:</font> Is there a relationship between when the project started and what kind of housing units it's made of?
 
 ![](https://media.kvue.com/assets/KVUE/images/3fada229-26cd-4ec4-92b6-a0e924d15c55/3fada229-26cd-4ec4-92b6-a0e924d15c55_1920x1080.jpg){width='400'}
 
@@ -215,4 +216,5 @@ Dataset itself [link](https://data.austintexas.gov/Housing-and-Real-Estate/Affor
 KVUE affordable housing [article](https://www.kvue.com/article/money/economy/boomtown-2040/south-austin-multifamily-affordable-housing-complex/269-b8594d51-0be1-43dc-8ea0-906709e2a4dc)
 
 Affordable housing homebuyer [information](https://www.austintexas.gov/homebuyer#LongTermAffordableHousing)
+
 
