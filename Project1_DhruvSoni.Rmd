@@ -1,0 +1,218 @@
+---
+title: "Project1_DhruvSoni"
+author: "Dhruv Soni"
+date: "2025-10-09"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(knitr)
+housing <- read_csv('Affordable_Housing_Inventory.csv')
+```
+
+## **1. Introduction**
+
+In this EDA project, I am investigating an Affordable Housing in Austin dataset that has information from the past 3 decades on affordable housing projects that have received a subsidy from or participated in a city of Austin developer incentive program.
+
+It is sourced through the City of Austin housing department itself, they collect the data and update it regularly; it can be viewed online and downloaded [here](https://data.austintexas.gov/Housing-and-Real-Estate/Affordable-Housing-Inventory/ifzc-3xz8/about_data).
+
+In this EDA, I am going to try to answer a few research questions:
+
+<font size="3" color="green">RQ1:</font> Do Affordable Housing projects that recieve more city subsidies have more affordable units available?
+
+<font size="3" color="green">RQ2:</font> Is there a relationship between when the project started and what kind of housing units it's made of?
+
+![](https://media.kvue.com/assets/KVUE/images/3fada229-26cd-4ec4-92b6-a0e924d15c55/3fada229-26cd-4ec4-92b6-a0e924d15c55_1920x1080.jpg){width='400'}
+
+<font size="1">Image taken from [KVUE article](https://www.kvue.com/article/money/economy/boomtown-2040/south-austin-multifamily-affordable-housing-complex/269-b8594d51-0be1-43dc-8ea0-906709e2a4dc)</font>
+
+## **2. Data Preparation**
+
+In the Data Preparation process, I first had to parse a date that was provided in the initial dataset but wasn't in a usable form, so I converted it into a date and then created a new variable for the number of days since the start date. 
+
+I also had to remove some of the categories in the Unit Type variable (that didn't have many observations anyway) to limit it to 4 categories.
+
+Finally, I dropped the observations with NA values for the city subsidy and made that a separate tibble in order to do the bivariate analyses with the city subsidy to avoid issues, and I also filtered it to values greater than 0, and converted it to hundreds of thousands to make the numbers more readable.
+
+One challenge I had was figuring out how to remove observations with NA values in a specific column, and I had to research the function for that.
+
+```{r, include = FALSE}
+#change housing tibble to parse start date as Date
+housing <- mutate(housing, Affordability_Start_Date = as.Date(mdy(Affordability_Start_Date)))
+
+#filter housing tibble to remove unnecessary categories from Unit Type
+housing <- housing %>% filter(!str_detect(Unit_Type, "ADU")) %>% filter(!str_detect(Unit_Type, "Non-Residential")) %>% filter(!str_detect(Unit_Type, "Triplex"))
+
+#create separate tibble with only observations with subsidy info; remove na values and values equal to zero
+housing_with_subsidy <- housing %>% drop_na(City_Subsidy) %>% filter(City_Subsidy>0)
+
+#change subsidy to be in hundreds of thousands to make more readable in graph analysis
+housing_with_subsidy <- mutate(housing_with_subsidy, City_Subsidy = round(City_Subsidy/100000, 2))
+
+```
+
+## **3. Variable Descriptions**
+
+```{r, echo = FALSE}
+
+#new tibble with only the relevant variables from original dataset tibble
+housing_relevant_variables <- housing %>% select(Affordability_Start_Date, City_Subsidy, Unit_Type, Affordable_Units, Housing_Tenure)
+
+#new tibble with only the relevant variables from original subsidy tibble
+housing_relevant_variables_subsidy <- housing_with_subsidy %>% select(Affordability_Start_Date, City_Subsidy, Unit_Type, Affordable_Units, Housing_Tenure)
+
+
+#create (and display) table to display relevant variables in the project, their variable types, and a short description about them
+
+table1 <- tibble(
+          VariableName = c('Affordability_Start_Date', 'City_Subsidy', 'Unit_Type', 'Affordable_Units', 'Housing_Tenure'),
+          VariableType = c('Numerical', 'Numerical', 'Categorical', 'Numerical', 'Categorical'),
+          Description = c('Date when the project\'s affordability period begins.', '	
+Total amount of funds received through various programs administered by the City of Austin, including those funded by the State of Texas or United States Federal Government.', 'Type of housing [Single Family, Multifamily, Duplex, Fourplex]', 'Total number of affordable units for the project', 'Type of Ownership [Mixed, Ownerships, Rental]
+'))
+kable(table1)
+
+```
+
+## **4. Univariate Analyses**
+
+```{r, echo = FALSE}
+#create ggplot thing from relevant variables tibble to start analysis
+housing_ggplot <- ggplot(housing_relevant_variables)
+
+#histogram of affordable units
+housing_ggplot + geom_histogram((aes(x=Affordable_Units)), color = 'grey', fill='aquamarine', binwidth = 50) + theme_minimal() + labs(title='Distribution of Affordable Units in each Project', y='Number of Projects')
+```
+
+The resulting histogram for **Affordable Units** per project shows a right skewed distribution with a **median of `r round(median(housing_relevant_variables$Affordable_Units, na.rm=TRUE), 2)`** and an **IQR of `r round(IQR(housing_relevant_variables$Affordable_Units, na.rm=TRUE), 2)`**.
+
+NOTE: There are a high amount of observations with 1 affordable unit because the data for some of the projects that are individual homes is listed in individual observations such as the [Croslin Court Condominiums](https://www.austintexas.gov/sites/default/files/files/Housing/Croslin_Court_Open_House_Flyer.pdf).
+
+```{r, echo = FALSE}
+
+#create ggplot thing from subsidy relevant variables tibble to start analysis
+housing_subsidy_ggplot <- ggplot(housing_relevant_variables_subsidy)
+
+#histogram of city subsidy
+housing_subsidy_ggplot + geom_histogram((aes(x=City_Subsidy)), color = 'grey', fill='aquamarine', binwidth = 10) + theme_minimal() + labs(title='City of Austin Subsidy Amount in each Project ', x='City Subsidy (hundreds of thousands of dollars)', y='Number of Projects')
+
+```
+
+The resulting histogram for **City Subsidy Amount** per project also shows a right skewed distribution with a **median of `r round(median(housing_relevant_variables_subsidy$City_Subsidy, na.rm=TRUE), 2)`** and an **IQR of `r round(IQR(housing_relevant_variables_subsidy$City_Subsidy, na.rm=TRUE), 2)`**. (Hundreds of thousands of dollars)
+
+```{r, echo = FALSE}
+
+#bar graph of unit types; 4 categories 
+housing_ggplot + geom_bar(aes(x=Unit_Type), col = 'grey', fill = 'aquamarine') + theme_minimal() + labs(title = 'Distribution of Housing Type for Projects', x='Unit Type', y='Number of Projects')
+```
+
+This bar graph for the categorical variable Unit Type shows that **Single Family** housing projects are the most common in the dataset. There are **`r nrow(filter(housing_relevant_variables, Unit_Type == 'Single Family'))` Single Family** projects, **`r nrow(filter(housing_relevant_variables, Unit_Type == 'Multifamily'))` Multifamily** ones, and **`r nrow(filter(housing_relevant_variables, Unit_Type == 'Duplex'))`** and **`r nrow(filter(housing_relevant_variables, Unit_Type == 'FourPlex'))` Duplex** and **FourPlex** projects respectively. This is also influenced by the dataset feature explained in the note.
+
+```{r, echo = FALSE}
+
+#bar graph of housing ownership type; 3 categories
+housing_ggplot + geom_bar(aes(x=Housing_Tenure), col = 'grey', fill = 'aquamarine') + theme_minimal() + labs(title = 'Distribution of Ownership Type for Projects', x='Housing Tenure', y='Number of Projects')
+```
+
+This bar graph for the categorical variable Housing Tenure shows that Ownership tenure is the most common in the dataset. There are **`r nrow(filter(housing_relevant_variables, Housing_Tenure == 'Ownership'))` resident-owned** projects, **`r nrow(filter(housing_relevant_variables, Housing_Tenure == 'Rental'))` landlord-owned** (whether public private or non-profit), and **`r nrow(filter(housing_relevant_variables, Housing_Tenure == 'Mixed'))` Mixed** ownership projects.
+
+The Austin Texas government has information regarding housing and Homebuyer resources, for individuals that can be accessed [online](https://www.austintexas.gov/homebuyer#LongTermAffordableHousing).
+
+## **5. Bivariate Analyses**
+
+```{r, echo = FALSE}
+
+#scatterplot of affordable units and city subsidy
+housing_subsidy_ggplot + geom_point(aes(x=City_Subsidy, y=Affordable_Units), pch=20, col='magenta') + theme_minimal() + labs(title='Affordable Units vs City Subsidy amount', x='City Subsidy (hundreds of thousands of dollars)', y='Affordable Units per Project')
+```
+
+The scatterplot shows the relation between the amount spent by the City of Austin on each individual affordable housing project and the number of Affordable Units available in said projects. The graph shows a pretty clear positive relationship between the two variables, with the **r correlation coefficient** being **`r round(cor(housing_relevant_variables_subsidy$City_Subsidy, housing_relevant_variables_subsidy$Affordable_Units), 2)`**, which is a moderately strong relationship.
+
+```{r, echo = FALSE}
+
+#boxplot of unit type and city subsidy relationship (4 plots on one graph)
+housing_subsidy_ggplot + geom_boxplot(aes(x= Unit_Type, y=City_Subsidy), fill='magenta') + theme_minimal() + coord_cartesian(ylim = c(0, 75)) + labs(title='City Subsidy amount by type of Unit', x='Housing Unit Type', y='City Subsidy (hundreds of thousands of dolars)')
+
+#group subsidy tibble by unit type in order to generate a quantitative summary table of the information displayed in the boxplot
+unit_type_group <- group_by(housing_relevant_variables_subsidy, Unit_Type)
+kable(summarise(unit_type_group, medianSubsidy = median(City_Subsidy), IQRSubsidy = IQR(City_Subsidy)))
+```
+
+This grouped box plot graph shows how different Housing Unit Types are funded differently, and though the boxplots are pretty concentrated in the lower amounts for **Duplex, FourPlex,** and **Single Family** housing types, the **Multifamily** housing is clearly the highest in terms of the amount funded by the city. Because the boxplots are not all very symmetrical, I choose to use the **median** and **IQR** to describe them.
+
+The **Multifamily** median of **20** (in hundreds of thousands of dollars) is significantly higher than the other unit types, but the IQR is also very high meaning that the distribution is much more spread out.
+
+```{r, echo = FALSE}
+
+#create new variable dayssincestart using existing date variable, remove na values
+housing_relevant_variables_subsidy$DaysSinceStart <- as.numeric(today() - housing_relevant_variables_subsidy$Affordability_Start_Date)
+housing_relevant_variables_subsidy <-drop_na(housing_relevant_variables_subsidy, Affordability_Start_Date)
+
+#create scatterplot of city subsidy and dayssincestart relationship
+housing_subsidy_ggplot <- ggplot(housing_relevant_variables_subsidy)
+housing_subsidy_ggplot + geom_point(aes(x=City_Subsidy, y=DaysSinceStart), pch=20, col='magenta') + theme_minimal() + labs(title='Days Since Project Start vs City Subsidy amount', x='City Subsidy (hundreds of thousands of dollars)', y='Days Since Start')
+```
+
+The resulting scatterplot for the relationship between subsidy and days since the starting of the project showed a pretty weak relationship, with **r coefficient = `r cor(housing_relevant_variables_subsidy$DaysSinceStart, housing_relevant_variables_subsidy$City_Subsidy)`**. 
+
+Though most of the high end city subsidy values are concentrated in more recent projects which can be seen in the graph, it is not nearly enough to justify declaring a relationship.
+
+```{r, echo = FALSE, warning = FALSE}
+
+#creating dayssincestart for the other tibble
+housing_relevant_variables$DaysSinceStart <- as.numeric(today() - housing_relevant_variables$Affordability_Start_Date)
+
+#create boxplot of unit type vs days since start relationship (4 boxplots on one graph)
+housing_ggplot <- ggplot(housing_relevant_variables)
+housing_ggplot + geom_boxplot(aes(x= Unit_Type, y=DaysSinceStart), fill='magenta') + theme_minimal() + labs(title='Days Since project start by Ownership type', x='Housing Ownership Type', y='Days Since Start')
+
+#group tibble by owner type and create and display quantitative summary for results shown in the boxplot
+owner_type_group <- group_by(housing_relevant_variables, Unit_Type)
+kable(summarise(owner_type_group, medianDays = median(DaysSinceStart, na.rm=TRUE), IQRDays = IQR(DaysSinceStart, na.rm=TRUE)))
+
+```
+
+
+The days since starting the project does not have much of a clear relationship with the unit type, as the medians of **Duplex, FourPlex, and Single Family** projects being **~4600** days, except **Multifamily** projects being noticeably more recent with a median of **~2300** days.  
+
+## **6. Choice Elements**
+
+
+<font size="5" color="green"> The 5 Choice elements I used in this project were</font> 
+
+<font size="3" color="green"> 1. 5 or more in-line codes within the report:</font> In-line coding was used to describe all 4 univariate graphs right under the graph, plus the first and third bivariate graphs.
+
+<font size="3" color="green"> 2. Include at least 2 working hyperlinks:</font> I used hyperlinks (other than the data sources itself) after the first and last univariate analyses at the end of the text to give more context to the data.
+
+<font size="3" color="green"> 3. Change the default font style, size, and/or color of the text in part of your report:</font> Other than using font tags in this section itself, I bolded the inline code values to highlight the results numerically as well as some of the variable names.
+
+<font size="3" color="green"> 4. Include a floating table of contents to allow easy navigation: </font> I included this in my report.
+
+<font size="3" color="green"> 5. Format or parse at least one date, date/time, or string variable of interest: </font> I parsed the affordability start date provided in the dataset as a date variable in order to create a new variable that was the days since starting the project (today minus the parsed date).
+
+
+
+## **7. Conclusion**
+
+In conclusion, in this exploratory data analysis project, I explored the relationships between various variables from an affordable housing in Austin dataset to answer some research questions about affordable housing in general.
+
+I discovered that projects with higher city subsidies for them tend to have more affordable units available.
+
+I also discovered that while the other unit types were similar in average project age, Multifamily housing projects tend to be more recent, by a few years.
+
+More future research should be done with different kinds of subsidies/funding/grants, as housing projects can recieve money from not just the city government but other entities.
+
+## **8. References**
+
+Dataset itself [link](https://data.austintexas.gov/Housing-and-Real-Estate/Affordable-Housing-Inventory/ifzc-3xz8/about_data)
+
+KVUE affordable housing [article](https://www.kvue.com/article/money/economy/boomtown-2040/south-austin-multifamily-affordable-housing-complex/269-b8594d51-0be1-43dc-8ea0-906709e2a4dc)
+
+Affordable housing homebuyer [information](https://www.austintexas.gov/homebuyer#LongTermAffordableHousing)
+
